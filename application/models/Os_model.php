@@ -15,7 +15,6 @@ class Os_model extends CI_Model
 
     public function get($table, $fields, $where = '', $perpage = 0, $start = 0, $one = false, $array = 'array')
     {
-
         $this->db->select($fields . ',clientes.nomeCliente, clientes.celular as celular_cliente');
         $this->db->from($table);
         $this->db->join('clientes', 'clientes.idClientes = os.clientes_id');
@@ -28,15 +27,14 @@ class Os_model extends CI_Model
         $query = $this->db->get();
 
         $result = !$one ? $query->result() : $query->row();
+
         return $result;
     }
 
-    public function getOs($table, $fields, $where = '', $perpage = 0, $start = 0, $one = false, $array = 'array')
+    public function getOs($table, $fields, $where = [], $perpage = 0, $start = 0, $one = false, $array = 'array')
     {
-
-        $lista_clientes = array();
+        $lista_clientes = [];
         if ($where) {
-
             if (array_key_exists('pesquisa', $where)) {
                 $this->db->select('idClientes');
                 $this->db->like('nomeCliente', $where['pesquisa']);
@@ -54,6 +52,8 @@ class Os_model extends CI_Model
         $this->db->join('clientes', 'clientes.idClientes = os.clientes_id');
         $this->db->join('usuarios', 'usuarios.idUsuarios = os.usuarios_id');
         $this->db->join('garantias', 'garantias.idGarantias = os.garantias_id', 'left');
+        $this->db->join('produtos_os', 'produtos_os.os_id = os.idOs', 'left');
+        $this->db->join('servicos_os', 'servicos_os.os_id = os.idOs', 'left');
 
         // condicionais da pesquisa
 
@@ -75,16 +75,17 @@ class Os_model extends CI_Model
         }
         // condicional data final
         if (array_key_exists('ate', $where)) {
-
             $this->db->where('dataFinal <=', $where['ate']);
         }
 
         $this->db->limit($perpage, $start);
-
         $this->db->order_by('os.idOs', 'desc');
+        $this->db->group_by('os.idOs');
+
         $query = $this->db->get();
 
         $result = !$one ? $query->result() : $query->row();
+
         return $result;
     }
 
@@ -102,7 +103,6 @@ class Os_model extends CI_Model
 
     public function getProdutos($id = null)
     {
-
         $this->db->select('produtos_os.*, produtos.*');
         $this->db->from('produtos_os');
         $this->db->join('produtos', 'produtos.idProdutos = produtos_os.produtos_id');
@@ -121,7 +121,6 @@ class Os_model extends CI_Model
 
     public function add($table, $data, $returnId = false)
     {
-
         $this->db->insert($table, $data);
         if ($this->db->affected_rows() == '1') {
             if ($returnId == true) {
@@ -163,14 +162,14 @@ class Os_model extends CI_Model
 
     public function autoCompleteProduto($q)
     {
-
         $this->db->select('*');
         $this->db->limit(5);
-        $this->db->like('descricao', $q);
+        $this->db->like('codDeBarra', $q);
+        $this->db->or_like('descricao', $q);
         $query = $this->db->get('produtos');
         if ($query->num_rows() > 0) {
             foreach ($query->result_array() as $row) {
-                $row_set[] = array('label' => $row['descricao'] . ' | Preço: R$ ' . $row['precoVenda'] . ' | Estoque: ' . $row['estoque'], 'estoque' => $row['estoque'], 'id' => $row['idProdutos'], 'preco' => $row['precoVenda']);
+                $row_set[] = ['label' => $row['descricao'] . ' | Preço: R$ ' . $row['precoVenda'] . ' | Estoque: ' . $row['estoque'], 'estoque' => $row['estoque'], 'id' => $row['idProdutos'], 'preco' => $row['precoVenda']];
             }
             echo json_encode($row_set);
         }
@@ -178,15 +177,15 @@ class Os_model extends CI_Model
 
     public function autoCompleteProdutoSaida($q)
     {
-
         $this->db->select('*');
         $this->db->limit(5);
-        $this->db->like('descricao', $q);
+        $this->db->like('codDeBarra', $q);
+        $this->db->or_like('descricao', $q);
         $this->db->where('saida', 1);
         $query = $this->db->get('produtos');
         if ($query->num_rows() > 0) {
             foreach ($query->result_array() as $row) {
-                $row_set[] = array('label' => $row['descricao'] . ' | Preço: R$ ' . $row['precoVenda'] . ' | Estoque: ' . $row['estoque'], 'estoque' => $row['estoque'], 'id' => $row['idProdutos'], 'preco' => $row['precoVenda']);
+                $row_set[] = ['label' => $row['descricao'] . ' | Preço: R$ ' . $row['precoVenda'] . ' | Estoque: ' . $row['estoque'], 'estoque' => $row['estoque'], 'id' => $row['idProdutos'], 'preco' => $row['precoVenda']];
             }
             echo json_encode($row_set);
         }
@@ -194,14 +193,15 @@ class Os_model extends CI_Model
 
     public function autoCompleteCliente($q)
     {
-
         $this->db->select('*');
         $this->db->limit(5);
         $this->db->like('nomeCliente', $q);
+        $this->db->or_like('telefone', $q);
+        $this->db->or_like('celular', $q);
         $query = $this->db->get('clientes');
         if ($query->num_rows() > 0) {
             foreach ($query->result_array() as $row) {
-                $row_set[] = array('label' => $row['nomeCliente'] . ' | Telefone: ' . $row['telefone'], 'id' => $row['idClientes']);
+                $row_set[] = ['label' => $row['nomeCliente'] . ' | Telefone: ' . $row['telefone'] . ' | Celular: ' . $row['celular'], 'id' => $row['idClientes']];
             }
             echo json_encode($row_set);
         }
@@ -209,7 +209,6 @@ class Os_model extends CI_Model
 
     public function autoCompleteUsuario($q)
     {
-
         $this->db->select('*');
         $this->db->limit(5);
         $this->db->like('nome', $q);
@@ -217,7 +216,7 @@ class Os_model extends CI_Model
         $query = $this->db->get('usuarios');
         if ($query->num_rows() > 0) {
             foreach ($query->result_array() as $row) {
-                $row_set[] = array('label' => $row['nome'] . ' | Telefone: ' . $row['telefone'], 'id' => $row['idUsuarios']);
+                $row_set[] = ['label' => $row['nome'] . ' | Telefone: ' . $row['telefone'], 'id' => $row['idUsuarios']];
             }
             echo json_encode($row_set);
         }
@@ -225,14 +224,13 @@ class Os_model extends CI_Model
 
     public function autoCompleteTermoGarantia($q)
     {
-
         $this->db->select('*');
         $this->db->limit(5);
         $this->db->like('LOWER(refGarantia)', $q);
         $query = $this->db->get('garantias');
         if ($query->num_rows() > 0) {
             foreach ($query->result_array() as $row) {
-                $row_set[] = array('label' => $row['refGarantia'], 'id' => $row['idGarantias']);
+                $row_set[] = ['label' => $row['refGarantia'], 'id' => $row['idGarantias']];
             }
             echo json_encode($row_set);
         }
@@ -240,14 +238,13 @@ class Os_model extends CI_Model
 
     public function autoCompleteServico($q)
     {
-
         $this->db->select('*');
         $this->db->limit(5);
         $this->db->like('nome', $q);
         $query = $this->db->get('servicos');
         if ($query->num_rows() > 0) {
             foreach ($query->result_array() as $row) {
-                $row_set[] = array('label' => $row['nome'] . ' | Preço: R$ ' . $row['preco'], 'id' => $row['idServicos'], 'preco' => $row['preco']);
+                $row_set[] = ['label' => $row['nome'] . ' | Preço: R$ ' . $row['preco'], 'id' => $row['idServicos'], 'preco' => $row['preco']];
             }
             echo json_encode($row_set);
         }
@@ -255,7 +252,6 @@ class Os_model extends CI_Model
 
     public function anexar($os, $anexo, $url, $thumb, $path)
     {
-
         $this->db->set('anexo', $anexo);
         $this->db->set('url', $url);
         $this->db->set('thumb', $thumb);
@@ -267,7 +263,6 @@ class Os_model extends CI_Model
 
     public function getAnexos($os)
     {
-
         $this->db->where('os_id', $os);
         return $this->db->get('anexos')->result();
     }
@@ -278,5 +273,4 @@ class Os_model extends CI_Model
         $this->db->order_by('idAnotacoes', 'desc');
         return $this->db->get('anotacoes_os')->result();
     }
-
 }

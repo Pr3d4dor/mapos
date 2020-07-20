@@ -5,8 +5,8 @@
             <li><a data-toggle="tab" href="#tab2">Ordens de Serviço</a></li>
             <div class="buttons">
                 <?php if ($this->permission->checkPermission($this->session->userdata('permissao'), 'eCliente')) {
-                    echo '<a title="Icon Title" class="btn btn-mini btn-info" href="' . base_url() . 'index.php/clientes/editar/' . $result->idClientes . '"><i class="fas fa-edit"></i> Editar</a>';
-                } ?>
+    echo '<a title="Icon Title" class="btn btn-mini btn-info" href="' . base_url() . 'index.php/clientes/editar/' . $result->idClientes . '"><i class="fas fa-edit"></i> Editar</a>';
+} ?>
 
             </div>
         </ul>
@@ -65,11 +65,17 @@
                             <table class="table table-bordered">
                                 <tbody>
                                     <tr>
-                                        <td style="text-align: right; width: 30%"><strong>Telefone</strong></td>
+                                        <td style="text-align: right; width: 30%"><strong>Contato:</strong></td>
                                         <td>
-                                            <?php echo $result->telefone ?>
+                                            <?php echo $result->contato ?>
                                         </td>
                                     </tr>
+                                        <tr>
+                                            <td style="text-align: right; width: 30%"><strong>Telefone</strong></td>
+                                            <td>
+                                                <?php echo $result->telefone ?>
+                                            </td>
+                                        </tr>
                                     <tr>
                                         <td style="text-align: right"><strong>Celular</strong></td>
                                         <td>
@@ -110,6 +116,12 @@
                                         <td style="text-align: right"><strong>Número</strong></td>
                                         <td>
                                             <?php echo $result->numero ?>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="text-align: right"><strong>Complemento</strong></td>
+                                        <td>
+                                            <?php echo $result->complemento ?>
                                         </td>
                                     </tr>
                                     <tr>

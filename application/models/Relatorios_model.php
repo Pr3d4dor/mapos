@@ -15,7 +15,6 @@ class Relatorios_model extends CI_Model
 
     public function get($table, $fields, $where = '', $perpage = 0, $start = 0, $one = false, $array = 'array')
     {
-
         $this->db->select($fields);
         $this->db->from($table);
         $this->db->limit($perpage, $start);
@@ -69,31 +68,42 @@ class Relatorios_model extends CI_Model
 
     public function clientesCustom($dataInicial = null, $dataFinal = null)
     {
-
-        if ($dataInicial == null || $dataFinal == null) {
-            $dataInicial = date('Y-m-d');
-            $dataFinal = date('Y-m-d');
+        $whereData = '';
+        if ($dataInicial != null) {
+            $whereData .= "AND dataCadastro >= " . $this->db->escape($dataInicial);
         }
-        $query = "SELECT * FROM clientes WHERE dataCadastro BETWEEN ? AND ?";
-        return $this->db->query($query, array($dataInicial, $dataFinal))->result();
+        if ($dataFinal != null) {
+            $whereData .= "AND dataCadastro <= " . $this->db->escape($dataFinal);
+        }
+
+        $query = "SELECT * FROM clientes WHERE dataCadastro $whereData ORDER BY nomeCliente";
+
+        return $this->db->query($query, [$dataInicial, $dataFinal])->result();
     }
 
-    public function clientesRapid()
+    public function clientesRapid($array = false)
     {
         $this->db->order_by('nomeCliente', 'asc');
-        return $this->db->get('clientes')->result();
+
+        $result = $this->db->get('clientes');
+        if ($array) {
+            return $result->result_array();
+        }
+        return $result->result();
     }
 
     public function produtosRapid()
     {
         $this->db->order_by('descricao', 'asc');
+
         return $this->db->get('produtos')->result();
     }
 
     public function produtosRapidMin()
     {
         $this->db->order_by('descricao', 'asc');
-        $this->db->where('estoque < estoqueMinimo');
+        $this->db->where('estoque <= estoqueMinimo');
+
         return $this->db->get('produtos')->result();
     }
 
@@ -107,42 +117,49 @@ class Relatorios_model extends CI_Model
         if ($estoqueInicial != null) {
             $whereEstoque = "AND estoque BETWEEN " . $this->db->escape($estoqueInicial) . " AND " . $this->db->escape($estoqueFinal);
         }
-        $query = "SELECT * FROM produtos WHERE estoque >= 0 $wherePreco $whereEstoque";
+        $query = "SELECT * FROM produtos WHERE estoque >= 0 $wherePreco $whereEstoque ORDER BY descricao";
+
         return $this->db->query($query)->result();
     }
 
-    public function produtosEtiquetas($de,$ate){
+    public function produtosEtiquetas($de, $ate)
+    {
         $query = "SELECT * FROM produtos WHERE idProdutos BETWEEN ".$this->db->escape($de)." AND ".$this->db->escape($ate)." ORDER BY idProdutos";
-        
+
+        $this->db->order_by('descricao', 'asc');
+
         return $this->db->query($query)->result();
     }
 
     public function servicosRapid()
     {
         $this->db->order_by('nome', 'asc');
+
         return $this->db->get('servicos')->result();
     }
 
     public function servicosCustom($precoInicial = null, $precoFinal = null)
     {
-        $query = "SELECT * FROM servicos WHERE preco BETWEEN ? AND ?";
-        return $this->db->query($query, array($precoInicial, $precoFinal))->result();
+        $query = "SELECT * FROM servicos WHERE preco BETWEEN ? AND ? ORDER BY nome";
+
+        return $this->db->query($query, [$precoInicial, $precoFinal])->result();
     }
 
     public function osRapid()
     {
-
         $query = 'CREATE TEMPORARY TABLE IF NOT EXISTS total_produtos SELECT SUM(subTotal) as total_produto, os_id FROM produtos_os GROUP BY os_id; ';
         $this->db->query($query);
 
         $query = 'CREATE TEMPORARY TABLE IF NOT EXISTS total_servicos SELECT SUM(subTotal) as total_servico, os_id FROM servicos_os GROUP BY os_id; ';
         $this->db->query($query);
-        
+
         $this->db->select('os.*,clientes.nomeCliente, total_servicos.total_servico, total_produtos.total_produto');
         $this->db->from('os');
         $this->db->join('clientes', 'clientes.idClientes = os.clientes_id');
-        $this->db->join('total_produtos', 'total_produtos.os_id = os.idOs','left');
-        $this->db->join('total_servicos', 'total_servicos.os_id = os.idOs','left');
+        $this->db->join('total_produtos', 'total_produtos.os_id = os.idOs', 'left');
+        $this->db->join('total_servicos', 'total_servicos.os_id = os.idOs', 'left');
+        $this->db->order_by('os.dataInicial', 'DESC');
+
         return $this->db->get()->result();
     }
 
@@ -153,7 +170,10 @@ class Relatorios_model extends CI_Model
         $whereResponsavel = "";
         $whereStatus = "";
         if ($dataInicial != null) {
-            $whereData = "AND dataInicial BETWEEN " . $this->db->escape($dataInicial) . " AND " . $this->db->escape($dataFinal);
+            $whereData .= "AND dataInicial >= " . $this->db->escape($dataInicial);
+        }
+        if ($dataFinal != null) {
+            $whereData .= "AND dataInicial <= " . $this->db->escape($dataFinal);
         }
         if ($cliente != null) {
             $whereCliente = "AND clientes_id = " . $this->db->escape($cliente);
@@ -174,48 +194,45 @@ class Relatorios_model extends CI_Model
                    LEFT JOIN total_produtos ON total_produtos.os_id = os.idOs
                    LEFT JOIN total_servicos ON total_servicos.os_id = os.idOs
                    LEFT JOIN clientes ON os.clientes_id = clientes.idClientes
-                   WHERE idOs != 0 $whereData $whereCliente $whereResponsavel $whereStatus";
+                   WHERE idOs != 0 $whereData $whereCliente $whereResponsavel $whereStatus
+                   ORDER BY os.dataInicial";
 
         return $this->db->query($query)->result();
     }
 
     public function financeiroRapid()
     {
-
         $dataInicial = date('Y-m-01');
         $dataFinal = date("Y-m-t");
         $query = "SELECT * FROM lancamentos WHERE data_vencimento BETWEEN ? and ? ORDER BY tipo";
-        return $this->db->query($query, array($dataInicial, $dataFinal))->result();
+
+        return $this->db->query($query, [$dataInicial, $dataFinal])->result();
     }
 
-    public function financeiroCustom($dataInicial, $dataFinal, $tipo = null, $situacao = null)
+    public function financeiroCustom($dataInicial = null, $dataFinal = null, $tipo = null, $situacao = null)
     {
-
-        $whereTipo = "";
-        $whereSituacao = "";
-
-        if ($dataInicial == null) {
-            $dataInicial = date('Y-m-01');
-        }
-        if ($dataFinal == null) {
-            $dataFinal = date("Y-m-t");
+        if ($dataInicial) {
+            $this->db->where('data_vencimento >=', $dataInicial);
         }
 
-        if ($tipo == 'receita') {
-            $whereTipo = "AND tipo = 'receita'";
-        }
-        if ($tipo == 'despesa') {
-            $whereTipo = "AND tipo = 'despesa'";
-        }
-        if ($situacao == 'pendente') {
-            $whereSituacao = "AND baixado = 0";
-        }
-        if ($situacao == 'pago') {
-            $whereSituacao = "AND baixado = 1";
+        if ($dataFinal) {
+            $this->db->where('data_vencimento <=', $dataFinal);
         }
 
-        $query = "SELECT * FROM lancamentos WHERE data_vencimento BETWEEN ? and ? $whereTipo $whereSituacao";
-        return $this->db->query($query, array($dataInicial, $dataFinal))->result();
+        if ($tipo !== 'todos' && $tipo) {
+            $this->db->where('tipo', $tipo);
+        }
+
+        if ($situacao !== 'todos' && $situacao) {
+            if ($situacao === 'pendente') {
+                $this->db->where('baixado', 0);
+            }
+            if ($situacao === 'pago') {
+                $this->db->where('baixado', 1);
+            }
+        }
+
+        return $this->db->get('lancamentos')->result();
     }
 
     public function vendasRapid()
@@ -224,6 +241,9 @@ class Relatorios_model extends CI_Model
         $this->db->from('vendas');
         $this->db->join('clientes', 'clientes.idClientes = vendas.clientes_id');
         $this->db->join('usuarios', 'usuarios.idUsuarios = vendas.usuarios_id');
+
+        $this->db->order_by('vendas.dataVenda', 'DESC');
+
         return $this->db->get()->result();
     }
 
@@ -234,7 +254,10 @@ class Relatorios_model extends CI_Model
         $whereResponsavel = "";
         $whereStatus = "";
         if ($dataInicial != null) {
-            $whereData = "AND dataVenda BETWEEN " . $this->db->escape($dataInicial) . " AND " . $this->db->escape($dataFinal);
+            $whereData .= "AND dataVenda >= " . $this->db->escape($dataInicial);
+        }
+        if ($dataFinal != null) {
+            $whereData .= "AND dataVenda <= " . $this->db->escape($dataFinal);
         }
         if ($cliente != null) {
             $whereCliente = "AND clientes_id = " . $this->db->escape($cliente);
@@ -243,7 +266,8 @@ class Relatorios_model extends CI_Model
             $whereResponsavel = "AND usuarios_id = " . $this->db->escape($responsavel);
         }
 
-        $query = "SELECT vendas.*,clientes.nomeCliente,usuarios.nome FROM vendas LEFT JOIN clientes ON vendas.clientes_id = clientes.idClientes LEFT JOIN usuarios ON vendas.usuarios_id = usuarios.idUsuarios WHERE idVendas != 0 $whereData $whereCliente $whereResponsavel";
+        $query = "SELECT vendas.*,clientes.nomeCliente,usuarios.nome FROM vendas LEFT JOIN clientes ON vendas.clientes_id = clientes.idClientes LEFT JOIN usuarios ON vendas.usuarios_id = usuarios.idUsuarios WHERE idVendas != 0 $whereData $whereCliente $whereResponsavel ORDER BY vendas.dataVEnda";
+
         return $this->db->query($query)->result();
     }
 }
